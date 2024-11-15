@@ -15,9 +15,6 @@
 
 import pandas as pd
 import re
-import tkinter as tk
-from tkinter import filedialog, messagebox
-from tkinter import ttk
 
 def validate_excel(file_path, output_path):
     # Charger le fichier Excel
