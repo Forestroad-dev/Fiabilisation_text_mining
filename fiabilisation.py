@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[7]:
+# In[1]:
 
 
 # %pip install openpyxl
@@ -10,7 +10,7 @@
 # !pyinstaller --onefile --windowed fiabilisation.ipynb
 
 
-# In[8]:
+# In[6]:
 
 
 import pandas as pd
@@ -35,10 +35,18 @@ def validate_excel(file_path, output_path):
     for idx, row in df.iterrows():
         # Récupération des valeurs de la ligne
         Matricule_Client = row.get('Matricule Client', 'Inconnu')
-        Nom_Client = row.get('Nom Client', 'Inconnu')
+        Nom_Client       = row.get('Nom Client', 'Inconnu')
+        Agence           = row.get('Agence', 'Inconnu')
+        Num_compte       = row.get('N° Compte', 'Inconnu')
+        CC               = row.get('CC', 'Inconnu')
+        
         errors = {
             "Matricule Client": Matricule_Client,
-            # "Nom Client": Nom_Client,
+            "Nom Client": Nom_Client,
+            "Agence":Agence,
+            "N° Compte":Num_compte,
+            "CC":CC,
+            
             "Format du Numéro de Téléphone Invalide": "",
             "Domaine ou Format de l'Email Invalide": "",
             "Sexe ou Genre Incorrect ou Manquant pour Entreprise": "",
@@ -64,11 +72,7 @@ def validate_excel(file_path, output_path):
 
         # Nettoyage du numéro en supprimant les caractères non numériques
         phone = re.sub(r'\D', '', str(phone_raw)) if not pd.isna(phone_raw) else ""
-
-        # Debugging: Afficher la valeur brute et nettoyée du téléphone pour ce Matricule
-        if Matricule_Client == 17452911:
-            print(f"Matricule: {Matricule_Client}, Téléphone (brut): '{phone_raw}', Téléphone (nettoyé): '{phone}'")
-
+        
         # Initialisation du statut de validation
         valid_format = False
 
@@ -154,12 +158,12 @@ def validate_excel(file_path, output_path):
         if pack_type not in required_packs:
             # Si le représentant légal ou le genre est manquant, ajouter une erreur
             if not representant_legal:
-                errors["Représentant Légal Manquant pour le Pack Requis"] = "Représentant Légal manquant"
+                errors["Représentant Légal Manquant"] = "Représentant Légal manquant"
             if not genre_entreprise:
                 errors["Sexe ou Genre Incorrect ou Manquant pour Entreprise"] = "Le genre de l'entreprise est requis"
 
         # Ajouter les erreurs pour la ligne si au moins une condition est invalide
-        if any(errors[column] for column in errors if column != "Matricule Client"):
+        if any(errors[column] for column in errors if column not in ["Matricule Client", "Nom Client", "Agence", "N° Compte", "CC"]):
             invalid_rows.append(errors)
 
 
@@ -171,21 +175,5 @@ def validate_excel(file_path, output_path):
     else:
         return "Toutes les lignes répondent aux critères de validation."
 
-# # Utilisation
-# file_path = "C:/Users/djibril.marwan/Documents/Comptes Ouverts entre Mai et Septembre 2024 COFSN.xlsx"
-# output_path = "C:/Users/djibril.marwan/Documents/invalid_rows.xlsx"
-# invalid_data = validate_excel(file_path, output_path)
-
-# # Affiche le nombre de lignes avec erreurs et le fichier Excel généré
-# if isinstance(invalid_data, pd.DataFrame):
-#     print(f"Nombre de lignes avec erreurs: {invalid_data.shape[0]}")
-#     print("Le fichier Excel contenant les lignes invalides par condition a été généré.")
-# else:
-#     print(invalid_data)  # Affiche "Toutes les lignes répondent aux critères de validation" si tout est correct
-
-# print(invalid_data)
-
-
-# In[ ]:
 
 
