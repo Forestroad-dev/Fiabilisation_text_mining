@@ -19,6 +19,7 @@ import store from "./store";
 import router from "./router";
 import "./assets/css/nucleo-icons.css";
 import "./assets/css/nucleo-svg.css";
+// import axios from 'axios';
 import SoftUIDashboard from "./soft-ui-dashboard";
 
 const appInstance = createApp(App);

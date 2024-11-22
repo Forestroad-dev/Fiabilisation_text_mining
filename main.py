@@ -70,6 +70,10 @@ if uploaded_file is not None:
         
         # Afficher les lignes invalides
         st.write(f"**Nombre total de d'erreurs par matricules : {invalid_data.shape[0]}**")
+        
+        # Ajouter un résumé des erreurs par CC
+        st.subheader("Erreur détectées")
+        
         st.dataframe(invalid_data)
 
         # Ajouter un résumé des erreurs par CC
