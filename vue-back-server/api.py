@@ -18,6 +18,7 @@ app.add_middleware(
     allow_headers=["*"],  # Autoriser tous les en-têtes
 )
 
+file_store = {}
 
 @app.get("/")
 async def root():
@@ -88,8 +89,7 @@ async def validate_excel_file(file: UploadFile = File(...)):
 
         total_errors = 0
         error_counts = invalid_data.apply(lambda x: x.astype(str).str.strip() != "").sum()
-        filtered_errors = {column: count for column, count in error_counts.items()
-                            if count > 0 and column not in ["Matricule Client", "Nom Client", "Date Ouverture Compte", "Agence", "N° Compte", "CC"]}
+        filtered_errors = {column: count for column, count in error_counts.items() if column not in ["Matricule Client", "Nom Client", "Date Ouverture Compte", "Agence", "N° Compte", "CC"]}
 
         # Résumé des erreurs par catégorie
         error_summary = [{"column": column, "count": count} for column, count in filtered_errors.items()]
@@ -105,7 +105,7 @@ async def validate_excel_file(file: UploadFile = File(...)):
         ]
 
         # Calcul des erreurs spécifiques pour chaque CC en fonction de l'agence
-        invalid_data["Total Erreurs"] = invalid_data[specific_error_columns].apply(lambda row: (row != "").sum(), axis=1)
+        invalid_data["Total Erreurs"] = invalid_data[specific_error_columns].fillna('').apply(lambda row: (row != "").sum(), axis=1)
 
         # Groupe par CC et Agence, et calcul des erreurs spécifiques pour chaque CC dans chaque agence
         cc_error_counts = invalid_data.groupby(["CC", "Agence"])[specific_error_columns].apply(lambda group: (group != "").sum()).reset_index()
@@ -136,17 +136,14 @@ async def validate_excel_file(file: UploadFile = File(...)):
         )
 
         # Ajouter les CC manquants (sans erreurs) pour garantir que tous les CC sont inclus
-        all_cc = invalid_data["CC"].unique()
-        missing_cc = [cc for cc in all_cc if cc not in cc_error_counts["CC"].unique()]
-        for cc in missing_cc:
-            cc_error_counts = cc_error_counts.append({
-                "CC": cc,
-                "Agence": "",
-                "Total Erreurs Agence": 0,
-                "Total Erreurs": 0,
-                "Pourcentage": 0,
-                "Pourcentage Par Agence": 0
-            }, ignore_index=True)
+        all_cc = pd.DataFrame({"CC": df["CC"].unique()})  # Get all unique CCs from the original data
+        cc_error_counts = pd.merge(
+            all_cc, 
+            cc_error_counts, 
+            on="CC", 
+            how="left"
+        ).fillna(0)  # Fill missing values with 0
+
 
         # Trier les résultats par pourcentage
         cc_error_counts = cc_error_counts.sort_values(by="Pourcentage", ascending=False).reset_index(drop=True)
@@ -188,16 +185,15 @@ async def validate_excel_file(file: UploadFile = File(...)):
         agence_error_counts = agence_error_counts.fillna(0)
 
         
-        # Filtrer les CC ayant des erreurs
-        cc_with_errors = cc_error_counts[cc_error_counts["Total Erreurs"] > 0]["CC"].unique()
+                # Inclure tous les CC avec ou sans erreurs
+        cc_with_errors = cc_error_counts[cc_error_counts["Total Erreurs"] > 0]["CC"].unique()  # CC avec des erreurs
 
         # Calculer le pourcentage des CC avec des erreurs
-        percentage_cc_with_errors = round((len(cc_with_errors) / len(all_cc)) * 100)
+        percentage_cc_with_errors = round((len(cc_with_errors) / len(all_cc)) * 100 if len(all_cc) > 0 else 0)
 
-        
         result = {
-            "file_name": file.filename,
-            "download_link": f"/download-invalid-file/{os.path.basename(invalid_data_path)}",
+            "file_name": os.path.splitext(file.filename)[0],
+            "download_link": f"/download-invalid-file/{os.path.basename(file.filename)}",  # Inclure le nom du fichier original
             "total_rows": total_rows,
             "rows_with_errors": rows_with_errors,
             "total_errors": total_errors,
@@ -207,12 +203,14 @@ async def validate_excel_file(file: UploadFile = File(...)):
             "percentage_cc_with_errors": percentage_cc_with_errors,
             "percentage_agences_with_errors": round((len(agence_error_counts[agence_error_counts["Total Erreurs"] > 0]) / len(all_agences)) * 100)
         }
-        
+
         error_summary_df = pd.DataFrame(error_summary)  
         temp_dir = os.path.join(os.getcwd(), "temp")
         os.makedirs(temp_dir, exist_ok=True)
         file_path = os.path.join(temp_dir, "erreurs_resume_latest.xlsx")
         error_summary_df.to_excel(file_path, index=False)
+        invalid_data_path = os.path.join(temp_dir, f"invalid_data_{file.filename}")
+        file_store["latest_file"] = invalid_data_path
 
 
 
@@ -222,7 +220,7 @@ async def validate_excel_file(file: UploadFile = File(...)):
         # Retourner un fichier Excel avec les lignes invalides en option
         return JSONResponse(content={
             "message": "Validation réussie",
-            # "download_link": download_link,
+            "download_link": "/download-invalid-file/",
             "result": result  # Ajout des résultats détaillés
         })
 
@@ -235,41 +233,18 @@ async def validate_excel_file(file: UploadFile = File(...)):
 
 @app.get("/download-invalid-file/")
 async def download_invalid_file():
-    # Localiser le fichier des données invalides dans le répertoire temporaire
-    temp_dir = os.path.join(os.getcwd(), "temp")
-    invalid_data_files = [f for f in os.listdir(temp_dir) if f.startswith("invalid_data_")]
+    # Récupérer le chemin du fichier à partir du dictionnaire global
+    invalid_data_path = file_store.get("latest_file")
 
-    # Vérifier si un fichier est disponible
-    if not invalid_data_files:
-        return JSONResponse(content={"message": "Aucun fichier d'erreurs disponible pour le téléchargement."}, status_code=404)
+    if not invalid_data_path or not os.path.isfile(invalid_data_path):
+        return JSONResponse(
+            content={"message": "Aucun fichier d'erreurs disponible pour le téléchargement."},
+            status_code=404
+        )
 
-    # Prendre le fichier le plus récent
-    invalid_data_path = os.path.join(temp_dir, invalid_data_files[-1])
-
+    # Retourner le fichier
     return FileResponse(
         invalid_data_path,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         filename=os.path.basename(invalid_data_path)
     )
-
-# @app.get("/download-invalid-file/")
-# async def download_invalid_file(output_path="invalid_row.xlsx"):
-#     try:
-#         # Vérifier si le fichier contenant les erreurs a été généré
-#         if not os.path.isfile(output_path):
-#             return JSONResponse(
-#                 content={"message": "Fichier contenant les erreurs introuvable ou aucune erreur détectée."},
-#                 status_code=404
-#             )
-
-#         # Retourner le fichier en téléchargement
-#         return FileResponse(
-#             output_path,
-#             filename="invalid_row.xlsx",
-#             media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-#         )
-#     except Exception as e:
-#         return JSONResponse(
-#             content={"message": f"Une erreur s'est produite : {str(e)}"},
-#             status_code=500
-#         )

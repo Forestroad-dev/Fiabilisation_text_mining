@@ -48,8 +48,8 @@
             value: 'N/A',
             color: 'text-muted',
           }"
-          style="background: linear-gradient(310deg, #ad1717 0%, #ec2d2d 100%); color: white;"
-          :title-style="{ color: 'white' }"
+          style="background: linear-gradient(310deg, #ad1717 0%, #ec2d2d 100%); color: black;"
+          :title-style="{ color: 'gray', fontWeight: 'bold' }"
           :value-style="{ color: 'white' }"
           :percentage-style="{ color: 'white' }"
           direction-reverse
@@ -63,7 +63,7 @@
             value: 'N/A',
             color: 'text-muted',
           }"
-          style="background: linear-gradient(310deg, #ad1717 0%, #ec2d2d 100%); color: white;"
+          style="background: linear-gradient(310deg, #ad1717 0%, #ec2d2d 100%); color: black;"
           :title-style="{ color: 'white' }"
           :value-style="{ color: 'white' }"
           :percentage-style="{ color: 'white' }"
@@ -76,7 +76,7 @@
           v-if="isValidationComplete"
           @click="downloadInvalidFile" 
           class="btn btn-primary mt-3"
-          style="background: linear-gradient(310deg, #ad1717 0%, #ec2d2d 100%); color: white; border: none;"
+          style="background: linear-gradient(310deg, #ad1717 0%, #ec2d2d 100%); color: black; border: none;"
         
         >
           Télécharger les données invalides
@@ -93,6 +93,7 @@
             value: 'N/A',
             color: 'text-danger',
           }"
+          style="background: linear-gradient(310deg, #ad1717 0%, #ec2d2d 100%); color: #d3d3d3;"
           direction-reverse
         />
       </div>
@@ -108,6 +109,7 @@
             component: 'ni ni-alert-circle-exc',
             background: iconBackground,
           }"
+          style="background: linear-gradient(310deg, #ad1717 0%, #ec2d2d 100%); color: black;"
           direction-reverse
         />
       </div>
@@ -123,6 +125,7 @@
             component: 'ni ni-alert-circle-exc',
             background: iconBackground,
           }"
+          style="background: linear-gradient(310deg, #ad1717 0%, #ec2d2d 100%); color: black;"
           direction-reverse
         />
       </div>
@@ -138,6 +141,7 @@
             component: 'ni ni-alert-circle-exc',
             background: iconBackground,
           }"
+          style="background: linear-gradient(310deg, #ad1717 0%, #ec2d2d 100%); color: black;"
           direction-reverse
         />
       </div>
@@ -165,6 +169,7 @@
             component: 'ni ni-alert-circle-exc',
             background: iconBackground,
           }"
+          style="background: linear-gradient(310deg, #ad1717 0%, #ec2d2d 100%); color: black;"
           direction-reverse
         />
       </div>
@@ -203,7 +208,7 @@
                     <th>Représentant</th>
                     <th>Agence</th>
                     <th>Total Erreurs Agence</th>
-                    <th>Pourcentage Par Agence</th>
+                    <th>Taux d'Erreurs du CC dans l'Agence</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -347,26 +352,34 @@
 
 
 
-      <div class="col-lg-4 col-md-6">
+      <div class="col-lg-6 col-md-6 mb-4">
         <timeline-list 
           class="h-100"
           title="Classement des CC ayant commis le plus d'erreurs"
-          :description="`<span class='icon-left'><span v-if='showIcon'>🔻</span> Les hauts totaux d'erreurs</span>`"
+          :description="`<span class='icon-left' style='font-size: 1.5em; vertical-align: middle; ><span v-if='showIcon'>🔻</span> Les hauts totaux d'erreurs</span>`"
           :showIcon="true"
         >
-          <timeline-item
-            v-for="(cc, index) in ccPodium"
-            :key="index"
-            :color="getPodiumColor(index)"
-            :icon="index === 0 ? 'fa fa-star' : index === 1 ? 'fa fa-star-half-alt' : index === 2 ? 'fa fa-star-of-david' : 'fa fa-star-o'"
-            :title="`${cc.CC} (${cc['Total Erreurs']} erreurs)`"
-            :date-time="`Pourcentage: ${cc.Pourcentage.toFixed(2)}%`"
-          />
+        <timeline-item
+          v-for="(cc, index) in ccPodium"
+          :key="index"
+          :color="getPodiumColor(index)"
+          :icon="`${index === 0 ? 'fa fa-star' : index === 1 ? 'fa fa-star-half-alt' : index === 2 ? 'fa fa-star-of-david' : 'fa fa-star-o'}`"
+          :title="`${cc.CC} (${cc['Total Erreurs']} erreurs)`"
+          :date-time="`Pourcentage: ${cc.Pourcentage.toFixed(2)}%`"
+          :style="{ fontSize: '1.5em' }"
+        />
         </timeline-list>
+      </div>
+      <div class="col-lg-6 col-md-6 mb-4">
+        <div class="card z-index-2">
+          <div class="card-body">
+            <h5 class="card-title">Pourcentage d'Agence ayant des erreurs</h5>
+            <canvas id="agenceWithErrorChart" width="400" height="400"></canvas>
+          </div>
+        </div>
       </div>
 
     </div>
-    <canvas id="agenceChart" width="400" height="200"></canvas>
   </div>
 </template>
 <script>
@@ -491,6 +504,9 @@ export default {
       if (this.ccWithErrorChart) {
         this.ccWithErrorChart.destroy();
       }
+      if (this.agenceWithErrorChart) {
+        this. agenceWithErrorChart.destroy();
+      }
 
       // Crée le graphique des erreurs par agence
       console.log("Creating chart with data:", this.agenceErrorCounts);
@@ -566,6 +582,36 @@ export default {
           labels: ['CC avec erreurs', 'CC sans erreurs'],
           datasets: [{
             data: [ccWithErrorPercentage, ccWithoutErrorPercentage],
+            backgroundColor: ['#FF5733', '#d9d9d9'],
+          }],
+        },
+        options: {
+          responsive: true,
+          plugins: {
+            tooltip: {
+              callbacks: {
+                label: function(tooltipItem) {
+                  return `${tooltipItem.label}: ${tooltipItem.raw.toFixed(2)}%`;
+                },
+              },
+            },
+          },
+        },
+      });
+    
+    // Crée le graphique circulaire pour le pourcentage d'agence avec erreurs
+      const agenceWithErrorChartCtx = document.getElementById("agenceWithErrorChart").getContext("2d");
+      const agenceWithErrorCount = this.agenceErrorCounts.filter(agence => agence['Pourcentage'] > 0).length;
+      const agenceTotalCount = this.agenceErrorCounts.length;
+      const agenceWithErrorPercentage = (agenceWithErrorCount / agenceTotalCount) * 100;
+      const agenceWithoutErrorPercentage = 100 - agenceWithErrorPercentage;
+
+      this.agenceWithErrorChart = new Chart(agenceWithErrorChartCtx, {
+        type: 'pie',
+        data: {
+          labels: ['Agence avec erreurs', 'Agence sans erreurs'],
+          datasets: [{
+            data: [agenceWithErrorPercentage, agenceWithoutErrorPercentage],
             backgroundColor: ['#FF5733', '#d9d9d9'],
           }],
         },
@@ -679,7 +725,8 @@ export default {
             ...item,
             Pourcentage: item.Pourcentage || 0, // Par défaut à 0 si non fourni
           }))
-          .filter((item) => item['Total Erreurs'] > 0); // Filtrer ceux avec un total supérieur à 0
+          // .filter((item) => item['Total Erreurs'] > 0)
+          ; // Filtrer ceux avec un total supérieur à 0
 
           this.agenceErrorCounts = result.agence_error_counts || [];
           this.agenceLabels = this.agenceErrorCounts.map((item) => item.Agence);
@@ -690,9 +737,14 @@ export default {
 
           this.percentage_cc_with_errors = result.percentage_cc_with_errors;
           this.percentage_agences_with_errors = result.percentage_agences_with_errors;
-          this.ccPodium = result.cc_error_counts
-            .filter(cc => cc.Pourcentage > 5) // Filtrer les CC avec un pourcentage supérieur à 5%
-            .sort((a, b) => b['Total Erreurs'] - a['Total Erreurs']) // Trier par total d'erreurs
+          this.ccPodium = Array.from(
+              new Map(
+                  result.cc_error_counts
+                      .filter(cc => cc.Pourcentage > 5) // Filtrer les CC avec un pourcentage > 5%
+                      .sort((a, b) => b['Total Erreurs'] - a['Total Erreurs']) // Trier par 'Total Erreurs'
+                      .map(cc => [cc.CC, cc]) // Utiliser le champ 'CC' comme clé pour garantir l'unicité
+              ).values()
+          );
 
           const labels = [...this.agenceLabels];
           const totals = [...this.agenceTotals];
@@ -827,20 +879,28 @@ export default {
       return 0; // Retourne 0 si le type est invalide
     },
 
-    calculatePercentageTotal(column, type) {
-      // Vérification du type pour calculer uniquement pour le tableau choisi
+    calculatePercentageTotal(column, type, totalErrors) {
+      // Vérifie si le totalErrors est valide pour éviter une division par zéro
+      if (!totalErrors || totalErrors <= 0) {
+        return 0; // Retourne 0 si le total des erreurs est invalide
+      }
+
+      let totalColumnErrors = 0;
+
+      // Calcul des erreurs en fonction du type
       if (type === 'cc') {
-        return this.ccErrorCounts.reduce((sum, ccError) => {
+        totalColumnErrors = this.ccErrorCounts.reduce((sum, ccError) => {
           return sum + (ccError[column] || 0);
         }, 0);
       } else if (type === 'agence') {
-        return this.agenceErrorCounts.reduce((sum, agenceError) => {
+        totalColumnErrors = this.agenceErrorCounts.reduce((sum, agenceError) => {
           return sum + (agenceError[column] || 0);
         }, 0);
       }
-      return 0; // Retourne 0 si le type est invalide
-    }
 
+      // Calcul du pourcentage par rapport au total des erreurs
+      return ((totalColumnErrors / totalErrors) * 100).toFixed(2); // Pourcentage avec 2 décimales
+    }
 
 },
 

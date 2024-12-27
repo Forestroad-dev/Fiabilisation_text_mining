@@ -7,7 +7,7 @@
             <p class="mb-0 text-sm text-capitalize font-weight-bold" :class="title.color">
               {{ typeof title === "string" ? title : title.text }}
             </p>
-            <h5 class="mb-0 font-weight-bolder" :class="value.color">
+            <h5 class="mb-0 font-weight-bolder" :class="value.color" style="color: white;">
               {{
                 typeof value === "string" || typeof value === "number"
                 ? value

@@ -2,7 +2,7 @@
   <div class="card" :class="darkMode ? 'bg-gradient-dark' : ''">
     <div class="pb-0 card-header" :class="darkMode ? 'bg-transparent' : ''">
       <h6 :class="darkMode ? 'text-white' : ''">
-        <span v-if="showIcon">❗</span> {{ title }}
+        <span v-if="showIcon" style="font-size: 2.0em;">❗</span> {{ title }}
       </h6>
       <!-- eslint-disable-next-line vue/no-v-html -->
       <p class="text-sm" v-html="description"></p>
