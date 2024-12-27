@@ -1,55 +1,35 @@
 <template>
   <div class="mb-4 card">
     <div class="p-3 card-body">
-      <div class="d-flex" :class="directionReverse ? reverseDirection : ''">
-        <div>
-          <div
-            class="text-center shadow icon icon-shape border-radius-md"
-            :class="typeof icon === 'object' ? icon.background : ''"
-          >
-            <i
-              class="text-lg opacity-10"
-              :class="typeof icon === 'string' ? icon : icon.component"
-              aria-hidden="true"
-            ></i>
-          </div>
-        </div>
-        <div :class="classContent">
+      <div class="d-flex">
+        <div :class="classContent + ' d-flex justify-content-start'">
           <div class="numbers">
-            <p
-              class="mb-0 text-sm text-capitalize font-weight-bold"
-              :class="title.color"
-            >
+            <p class="mb-0 text-sm text-capitalize font-weight-bold" :class="title.color">
               {{ typeof title === "string" ? title : title.text }}
             </p>
             <h5 class="mb-0 font-weight-bolder" :class="value.color">
               {{
                 typeof value === "string" || typeof value === "number"
-                  ? value
-                  : value.text
+                ? value
+                : value.text
               }}
-              <span
-                class="text-sm font-weight-bolder"
-                :class="percentage.color"
-              >
+              <span class="text-sm font-weight-bolder" :class="percentage.color">
                 {{
-                  typeof percentage === "number" ||
-                  typeof percentage === "string"
-                    ? `${percentage}`
-                    : ""
+                  typeof percentage === "number" || typeof percentage === "string"
+                  ? `${percentage}`
+                  : ""
                 }}
-
                 {{
                   percentage && percentage === "object"
-                    ? `${percentage.value}`
-                    : ""
+                  ? `${percentage.value}`
+                  : ""
                 }}
               </span>
             </h5>
           </div>
         </div>
       </div>
-    </div>
+    </div>    
   </div>
 </template>
 

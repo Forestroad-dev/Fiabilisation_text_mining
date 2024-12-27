@@ -1,85 +1,89 @@
-import streamlit as st
 from fastapi import FastAPI, File, UploadFile
-from fastapi.responses import HTMLResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse
 import pandas as pd
-import matplotlib.pyplot as plt
 from io import BytesIO
-from fiabilisation import validate_excel  # Importer la fonction de validation
+import os
+from fiabilisation import validate_excel  # Assurez-vous que cette fonction est bien définie
+import tempfile
+from datetime import datetime
+from fastapi.middleware.cors import CORSMiddleware
 
-# Injecter le CSS personnalisé
-with open("styles.css") as css:
-    st.markdown(f"<style>{css.read()}</style>", unsafe_allow_html=True)
+app = FastAPI()
 
-# Titre et interface
-st.title("Validation des Comptes Client")
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Autoriser toutes les origines (vous pouvez spécifier les URL précises pour plus de sécurité)
+    allow_credentials=True,
+    allow_methods=["*"],  # Autoriser toutes les méthodes
+    allow_headers=["*"],  # Autoriser tous les en-têtes
+)
 
-# Interface pour le téléchargement de fichier
-uploaded_file = st.file_uploader("Téléchargez un fichier Excel", type=["xlsx"])
 
-if uploaded_file is not None:
-    # Lecture du fichier téléchargé
-    try:
-        df = pd.read_excel(uploaded_file)
-        st.write(f"**Aperçu du fichier chargé : {df.shape[0]}**")
-        st.dataframe(df)
-    except Exception as e:
-        st.error(f"Erreur lors de la lecture du fichier : {e}")
-        st.stop()
+@app.get("/")
+async def root():
+    return {"message": "Bienvenue dans mon API!"}
 
-    # Spécifier le chemin de sortie pour enregistrer les erreurs
-    output_path = "invalid_rows.xlsx"
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return JSONResponse(content={"message": "Pas de favicon disponible."})
+
+@app.post("/validate-excel/")
+async def validate_excel_file(file: UploadFile = File(...)):
+    if not file.filename.endswith(('.xls', '.xlsx')):
+        return JSONResponse(
+            content={"message": "Format de fichier non pris en charge. Veuillez fournir un fichier Excel.",
+                     "file_name": file.filename },
+            status_code=400
+        )
     
-    # Exécuter la validation
-    st.info("Validation en cours, veuillez patienter...")
+    # Création d'un fichier temporaire pour l'upload
+    temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
     try:
-        invalid_data = validate_excel(uploaded_file, output_path)
-    except Exception as e:
-        st.error(f"Erreur lors de la validation : {e}")
-        st.stop()
-    
-    total_errors = 0
-    error_counts = invalid_data.apply(lambda x: x != "").sum()
-    filtered_errors = {column: count for column, count in error_counts.items()
-                    if count > 0 and column not in ["Matricule Client", "Nom Client", "Agence", "N° Compte", "CC"]}
+        temp_file.write(await file.read())
+        temp_file.close()
 
-    # Affichage des erreurs
-    st.subheader("Résumé des erreurs par catégorie")
-    for column, count in filtered_errors.items():
-        st.write(f"**{column}** : {count} erreurs")
-        total_errors += count
+        # Lecture du fichier Excel
+        df = pd.read_excel(temp_file.name)
 
-    # Création du diagramme en barres
-    if filtered_errors:
-        st.subheader("Diagramme des erreurs par catégorie")
-        fig, ax = plt.subplots()
-        categories = list(filtered_errors.keys())
-        counts = list(filtered_errors.values())
+        # Vérification des colonnes obligatoires
+        required_columns = ["CC", "Agence"]
+        missing_columns = [col for col in required_columns if col not in df.columns]
+        if missing_columns:
+            return JSONResponse(
+                content={"message": f"Colonnes obligatoires manquantes : {missing_columns}",
+                         "file_name": file.filename},
+                status_code=400
+            )
 
-        ax.bar(categories, counts, color='skyblue')
-        ax.set_title("Nombre d'erreurs par catégorie")
-        ax.set_xlabel("Catégorie")
-        ax.set_ylabel("Nombre d'erreurs")
-        ax.set_xticks(range(len(categories)))
-        ax.set_xticklabels(categories, rotation=45, ha="right")
-
-        # Affichage dans Streamlit
-        st.pyplot(fig)
+        invalid_data_file = tempfile.NamedTemporaryFile(delete=False, suffix=".xlsx")
+        # invalid_data = validate_excel(temp_file.name, invalid_data_file.name)
         
-        # Affichage du total des erreurs
-        st.write(f"**Total des erreurs : {total_errors}**")
+        # Exécuter la validation
+        try:
+            invalid_data = validate_excel(temp_file.name, invalid_data_file.name)
+        except Exception as e:
+            return JSONResponse(content={"message": f"Erreur lors de la validation : {e}",
+                                         "file_name": file.filename,
+                                         }, status_code=400)
         
-        # Afficher les lignes invalides
-        st.write(f"**Nombre total de d'erreurs par matricules : {invalid_data.shape[0]}**")
         
-        # Ajouter un résumé des erreurs par CC
-        st.subheader("Erreur détectées")
-        
-        st.dataframe(invalid_data)
+        # Nombre total de lignes
+        total_rows = len(df)
 
-        # Ajouter un résumé des erreurs par CC
-        st.subheader("Résumé des erreurs par CC")
+        # Nombre de lignes avec des erreurs
+        rows_with_errors = len(invalid_data)
 
-        # Erreurs spécifiques à compter
+        total_errors = 0
+        error_counts = invalid_data.apply(lambda x: x.astype(str).str.strip() != "").sum()
+        filtered_errors = {column: count for column, count in error_counts.items()
+                            if count > 0 and column not in ["Matricule Client", "Nom Client", "Date Ouverture Compte", "Agence", "N° Compte", "CC"]}
+
+        # Résumé des erreurs par catégorie
+        error_summary = [{"column": column, "count": count} for column, count in filtered_errors.items()]
+        total_errors = sum(filtered_errors.values())
+
+
+        # Création du résumé des erreurs par CC
         specific_error_columns = [
             "Format du Numéro de Téléphone Invalide",
             "Domaine ou Format de l'Email Invalide",
@@ -87,127 +91,151 @@ if uploaded_file is not None:
             "Représentant Légal Manquant"
         ]
 
-        # Calculer le nombre d'erreurs par ligne pour chaque type d'erreur spécifique
+        # Calcul des erreurs spécifiques pour chaque CC en fonction de l'agence
         invalid_data["Total Erreurs"] = invalid_data[specific_error_columns].apply(lambda row: (row != "").sum(), axis=1)
 
-        # Calculer le nombre d'occurrences de chaque type d'erreur par CC
-        cc_error_counts = invalid_data.groupby("CC")[specific_error_columns].apply(lambda group: (group != "").sum()).reset_index()
+        # Groupe par CC et Agence, et calcul des erreurs spécifiques pour chaque CC dans chaque agence
+        cc_error_counts = invalid_data.groupby(["CC", "Agence"])[specific_error_columns].apply(lambda group: (group != "").sum()).reset_index()
 
-        # Calculer le total des erreurs par CC
-        cc_error_counts["Total Erreurs"] = cc_error_counts[specific_error_columns].sum(axis=1)
+        # Calcul des erreurs totales par CC dans chaque agence
+        cc_error_counts["Total Erreurs Agence"] = cc_error_counts[specific_error_columns].sum(axis=1)
 
-        # Obtenir la liste complète des CC présents dans le fichier
-        all_cc = df["CC"].unique()
+        # Calcul du total des erreurs globales pour chaque CC (toutes agences confondues)
+        cc_total_errors = (
+            cc_error_counts.groupby("CC")["Total Erreurs Agence"].sum().reset_index()
+        )
+        cc_total_errors = cc_total_errors.rename(columns={"Total Erreurs Agence": "Total Erreurs"})
 
-        # Compléter cc_error_counts avec les CC sans erreurs spécifiques (si nécessaire)
-        cc_error_counts = pd.merge(
-            pd.DataFrame({"CC": all_cc}),  # Crée un DataFrame avec tous les CC
-            cc_error_counts,  # Ajoute les erreurs existantes
-            on="CC",  # Fusionne sur la colonne "CC"
-            how="left"  # Garder tous les CC même ceux sans erreurs
-        ).fillna(0)  # Remplir les CC sans erreurs avec 0
+        # Ajouter le total des erreurs globales pour chaque CC au DataFrame
+        cc_error_counts = pd.merge(cc_error_counts, cc_total_errors, on="CC", how="left")
 
-        # Calculer de nouveau le total global des erreurs
-        total_errors = cc_error_counts["Total Erreurs"].sum()
+        # Recalculer le total des erreurs globales (tous CC et toutes agences confondus)
+        total_errors_global = cc_error_counts["Total Erreurs"].sum()
 
-        # Ajouter une colonne pourcentage, en évitant la division par zéro
-        cc_error_counts["Pourcentage"] = (cc_error_counts["Total Erreurs"] / total_errors) * 100 if total_errors > 0 else 0
+        # Calcul du pourcentage pour chaque CC (par rapport au total global des erreurs)
+        cc_error_counts["Pourcentage"] = cc_error_counts["Total Erreurs"] / total_errors_global * 100 if total_errors_global > 0 else 0
 
-        # Ajouter la ligne "Total"
-        cc_error_counts = pd.concat([
-            cc_error_counts,
-            pd.DataFrame({
-                "CC": ["Total"],
-                "Total Erreurs": [total_errors],
-                "Pourcentage": [100]  # Le total représente toujours 100 %
-            })
-        ], ignore_index=True)
+        # Calcul du pourcentage des erreurs du CC dans l'agence par rapport aux erreurs totales de l'agence
+        cc_error_counts["Pourcentage Par Agence"] = cc_error_counts.apply(
+            lambda row: (row["Total Erreurs Agence"] / cc_error_counts[cc_error_counts["Agence"] == row["Agence"]]["Total Erreurs Agence"].sum() * 100)
+            if row["Total Erreurs Agence"] > 0 else 0,
+            axis=1
+        )
 
-        # Trier les résultats par nombre d'erreurs, décroissant
-        cc_error_counts = cc_error_counts.sort_values(by="Total Erreurs", ascending=False, ignore_index=True)
+        # Ajouter les CC manquants (sans erreurs) pour garantir que tous les CC sont inclus
+        all_cc = invalid_data["CC"].unique()
+        missing_cc = [cc for cc in all_cc if cc not in cc_error_counts["CC"].unique()]
+        for cc in missing_cc:
+            cc_error_counts = cc_error_counts.append({
+                "CC": cc,
+                "Agence": "",
+                "Total Erreurs Agence": 0,
+                "Total Erreurs": 0,
+                "Pourcentage": 0,
+                "Pourcentage Par Agence": 0
+            }, ignore_index=True)
 
-        # Afficher le tableau des erreurs par "CC"
-        st.write(cc_error_counts)
-        
-        # Calculer le pourcentage de CC ayant commis des erreurs
-        cc_with_errors = cc_error_counts[cc_error_counts["Total Erreurs"] > 0].shape[0]  # CC avec des erreurs
-        total_cc = len(all_cc)  # Total des CC
-        percentage_cc_with_errors = (cc_with_errors / total_cc) * 100 if total_cc > 0 else 0
-
-        # Afficher le pourcentage de CC ayant des erreurs
-        st.markdown(f"### Pourcentage de CC ayant commis des erreurs : **{percentage_cc_with_errors:.2f}%**")
+        # Trier les résultats par pourcentage
+        cc_error_counts = cc_error_counts.sort_values(by="Pourcentage", ascending=False).reset_index(drop=True)
 
 
-        # Ajouter un résumé des erreurs par Agence
-        st.subheader("Résumé des erreurs par Agence")
-
-        # Erreurs spécifiques à compter
-        specific_error_columns = [
-            "Format du Numéro de Téléphone Invalide",
-            "Domaine ou Format de l'Email Invalide",
-            "Sexe ou Genre Incorrect ou Manquant pour Entreprise",
-            "Représentant Légal Manquant"
-        ]
-
-        # Calculer le nombre d'erreurs par ligne pour chaque type d'erreur spécifique
-        invalid_data["Total Erreurs"] = invalid_data[specific_error_columns].apply(lambda row: (row != "").sum(), axis=1)
-
-        # Calculer le nombre d'occurrences de chaque type d'erreur par Agence
+        # Résumé des erreurs par Agence
         agence_error_counts = invalid_data.groupby("Agence")[specific_error_columns].apply(lambda group: (group != "").sum()).reset_index()
-
-        # Calculer le total des erreurs par agence
         agence_error_counts["Total Erreurs"] = agence_error_counts[specific_error_columns].sum(axis=1)
 
-        # Obtenir la liste complète des Agences présentes dans le fichier
+        # Calcul du nombre de CC par agence
+        cc_per_agence = df.groupby("Agence")["CC"].nunique().reset_index()
+        cc_per_agence = cc_per_agence.rename(columns={"CC": "Nombre de CC"})
+
+        # Ajouter les agences manquantes (même celles sans erreur) avec un total de 0
         all_agences = df["Agence"].unique()
-
-        # Compléter agence_error_counts avec les Agences sans erreurs spécifiques (si nécessaire)
         agence_error_counts = pd.merge(
-            pd.DataFrame({"Agence": all_agences}),  # Crée un DataFrame avec toutes les Agences
-            agence_error_counts,  # Ajoute les erreurs existantes
-            on="Agence",  # Fusionne sur la colonne "Agence"
-            how="left"  # Garder toutes les Agences même celles sans erreurs
-        ).fillna(0)  # Remplir les Agences sans erreurs avec 0
-
-        # Calculer de nouveau le total global des erreurs
-        total_errors = agence_error_counts["Total Erreurs"].sum()
-
-        # Ajouter une colonne pourcentage, en évitant la division par zéro
-        agence_error_counts["Pourcentage"] = (agence_error_counts["Total Erreurs"] / total_errors) * 100 if total_errors > 0 else 0
-
-        # Ajouter la ligne "Total"
-        agence_error_counts = pd.concat([
+            pd.DataFrame({"Agence": all_agences}),
             agence_error_counts,
-            pd.DataFrame({
-                "Agence": ["Total"],
-                "Total Erreurs": [total_errors],
-                "Pourcentage": [100]  # Le total représente toujours 100 %
-            })
-        ], ignore_index=True)
+            on="Agence",
+            how="left"
+        ).fillna(0)
 
-        # Trier les résultats par nombre d'erreurs, décroissant
-        agence_error_counts = agence_error_counts.sort_values(by="Total Erreurs", ascending=False, ignore_index=True)
+        # Fusionner le nombre de CC par agence
+        agence_error_counts = pd.merge(agence_error_counts, cc_per_agence, on="Agence", how="left").fillna(0)
 
-        # Afficher le tableau des erreurs par "Agence"
-        st.write(agence_error_counts)
+        # Calcul du pourcentage d'erreurs par agence
+        total_errors_by_agence = agence_error_counts["Total Erreurs"].sum()
+        agence_error_counts["Pourcentage"] = (
+            (agence_error_counts["Total Erreurs"] / total_errors_by_agence) * 100 if total_errors_by_agence > 0 else 0
+        )
+
+        # Trier les agences par pourcentage décroissant
+        agence_error_counts = agence_error_counts.sort_values(by="Pourcentage", ascending=False).reset_index(drop=True)
+
+        # Résultat des erreurs
         
-        # Calculer le pourcentage d'agences ayant commis des erreurs
-        agences_with_errors = agence_error_counts[agence_error_counts["Total Erreurs"] > 0].shape[0]  # Agences avec des erreurs
-        total_agences = len(all_agences)  # Total des agences
-        percentage_agences_with_errors = (agences_with_errors / total_agences) * 100 if total_agences > 0 else 0
+        # Convertir NaN en 0 ou une autre valeur acceptable
+        cc_error_counts = cc_error_counts.fillna(0)
+        agence_error_counts = agence_error_counts.fillna(0)
 
-        # Afficher le pourcentage d'agences ayant des erreurs
-        st.markdown(f"### Pourcentage d'agences ayant commis des erreurs : **{percentage_agences_with_errors:.2f}%**")
+        
+        # Filtrer les CC ayant des erreurs
+        cc_with_errors = cc_error_counts[cc_error_counts["Total Erreurs"] > 0]["CC"].unique()
 
-        # Télécharger le fichier contenant les erreurs
-        with open(output_path, "rb") as file:
-            st.download_button(
-                label="Télécharger les lignes invalides",
-                data=file,
-                file_name="invalid_rows.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        # Calculer le pourcentage des CC avec des erreurs
+        percentage_cc_with_errors = round((len(cc_with_errors) / len(all_cc)) * 100)
+
+        
+        result = {
+            "file_name": file.filename,
+            "total_rows": total_rows,
+            "rows_with_errors": rows_with_errors,
+            "total_errors": total_errors,
+            "error_summary": error_summary,
+            "cc_error_counts": cc_error_counts.to_dict(orient="records"),
+            "agence_error_counts": agence_error_counts.to_dict(orient="records"),
+            "percentage_cc_with_errors": percentage_cc_with_errors,
+            "percentage_agences_with_errors": round((len(agence_error_counts[agence_error_counts["Total Erreurs"] > 0]) / len(all_agences)) * 100)
+        }
+        
+        error_summary_df = pd.DataFrame(error_summary)  
+        temp_dir = os.path.join(os.getcwd(), "temp")
+        os.makedirs(temp_dir, exist_ok=True)
+        file_path = os.path.join(temp_dir, "erreurs_resume_latest.xlsx")
+        error_summary_df.to_excel(file_path, index=False)
+
+
+
+        # Générer un lien pour télécharger le fichier des erreurs
+        download_link = "/download-invalid-file/"
+        # Retourner un fichier Excel avec les lignes invalides en option
+        return JSONResponse(content={
+            "message": "Validation réussie",
+            "download_link": download_link,
+            "result": result  # Ajout des résultats détaillés
+        })
+
+        
+    except Exception as e:
+        return JSONResponse(content={"message": f"Erreur : {e}"}, status_code=500)
+
+    finally:
+        os.unlink(temp_file.name) 
+
+@app.get("/download-invalid-file/")
+async def download_invalid_file(output_path="invalid_rows.xlsx"):
+    try:
+        # Vérifier si le fichier contenant les erreurs a été généré
+        if not os.path.isfile(output_path):
+            return JSONResponse(
+                content={"message": "Fichier contenant les erreurs introuvable ou aucune erreur détectée."},
+                status_code=404
             )
-    else:
-        st.success("Toutes les lignes répondent aux critères de validation.")
-else:
-    st.info("Veuillez télécharger un fichier Excel pour commencer la validation.")
+
+        # Retourner le fichier en téléchargement
+        return FileResponse(
+            output_path,
+            filename="invalid_rows.xlsx",
+            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+    except Exception as e:
+        return JSONResponse(
+            content={"message": f"Une erreur s'est produite : {str(e)}"},
+            status_code=500
+        )

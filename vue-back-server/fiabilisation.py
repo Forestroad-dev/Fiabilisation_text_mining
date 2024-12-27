@@ -17,6 +17,7 @@ def validate_excel(file_path, output_path):
     for idx, row in df.iterrows():
         Matricule_Client = row.get('Matricule Client', 'Inconnu')
         Nom_Client       = row.get('Nom Client',       'Inconnu')
+        Date_Ouverture_Compte       = row.get('Date Ouverture Compte',       'Inconnu')
         Agence           = row.get('Agence',           'Inconnu')
         Num_compte       = row.get('N° Compte',        'Inconnu')
         CC               = row.get('CC',               'Inconnu')
@@ -24,6 +25,7 @@ def validate_excel(file_path, output_path):
         errors = {
             "Matricule Client": Matricule_Client,
             "Nom Client": Nom_Client,
+            "Date Ouverture Compte": Date_Ouverture_Compte ,
             "Agence":Agence,
             "N° Compte":Num_compte,
             "CC":CC,
@@ -113,7 +115,7 @@ def validate_excel(file_path, output_path):
                 errors["Représentant Légal Manquant"] = "Représentant Légal manquant"
             if not genre_entreprise:
                 errors["Sexe ou Genre Incorrect ou Manquant pour Entreprise"] = "Le genre de l'entreprise est requis"
-        if any(errors[column] for column in errors if column not in ["Matricule Client", "Nom Client", "Agence", "N° Compte", "CC"]):
+        if any(errors[column] for column in errors if column not in ["Matricule Client", "Nom Client", "Date Ouverture Compte", "Agence", "N° Compte", "CC"]):
             invalid_rows.append(errors)
 
     if invalid_rows:

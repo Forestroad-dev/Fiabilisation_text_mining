@@ -1,8 +1,10 @@
 <template>
   <div class="card" :class="darkMode ? 'bg-gradient-dark' : ''">
     <div class="pb-0 card-header" :class="darkMode ? 'bg-transparent' : ''">
-      <h6 :class="darkMode ? 'text-white' : ''">{{ title }}</h6>
-      <!--  eslint-disable-next-line vue/no-v-html -->
+      <h6 :class="darkMode ? 'text-white' : ''">
+        <span v-if="showIcon">❗</span> {{ title }}
+      </h6>
+      <!-- eslint-disable-next-line vue/no-v-html -->
       <p class="text-sm" v-html="description"></p>
     </div>
     <div class="p-3 card-body">
@@ -10,7 +12,7 @@
         class="timeline timeline-one-side"
         :data-timeline-axis-style="darkMode ? 'dashed' : 'dotted'"
       >
-        <slot />
+        <slot/>
       </div>
     </div>
   </div>
@@ -31,6 +33,10 @@ export default {
     darkMode: {
       type: Boolean,
       default: false,
+    },
+    showIcon: {
+      type: Boolean,
+      default: true, // Contrôle l'affichage de l'icône
     },
   },
 };
