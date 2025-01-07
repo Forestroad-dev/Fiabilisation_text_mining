@@ -89,7 +89,7 @@ async def validate_excel_file(file: UploadFile = File(...)):
 
         total_errors = 0
         error_counts = invalid_data.apply(lambda x: x.astype(str).str.strip() != "").sum()
-        filtered_errors = {column: count for column, count in error_counts.items() if column not in ["Matricule Client", "Nom Client", "Date Ouverture Compte", "Agence", "N° Compte", "CC"]}
+        filtered_errors = {column: count for column, count in error_counts.items() if column not in ["Matricule Client", "Nom Client", "Date Ouverture Compte", "Agence", "N° Compte", "CC","Nombre d'Erreurs"]}
 
         # Résumé des erreurs par catégorie
         error_summary = [{"column": column, "count": count} for column, count in filtered_errors.items()]
@@ -246,5 +246,6 @@ async def download_invalid_file():
     return FileResponse(
         invalid_data_path,
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        filename=os.path.basename(invalid_data_path)
+        filename=os.path.basename(invalid_data_path),
+        headers={"Content-Disposition": f'attachment; filename="{os.path.basename(invalid_data_path)}"'}
     )

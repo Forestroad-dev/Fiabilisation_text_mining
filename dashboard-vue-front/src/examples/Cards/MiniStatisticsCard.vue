@@ -4,32 +4,43 @@
       <div class="d-flex">
         <div :class="classContent + ' d-flex justify-content-start'">
           <div class="numbers">
-            <p class="mb-0 text-sm text-capitalize font-weight-bold" :class="title.color">
+            <p
+              class="mb-0 text-sm text-capitalize font-weight-bold"
+              :class="title.color"
+            >
               {{ typeof title === "string" ? title : title.text }}
             </p>
-            <h5 class="mb-0 font-weight-bolder" :class="value.color" style="color: white;">
+            <h5
+              class="mb-0 font-weight-bolder"
+              :class="value.color"
+              style="color: black"
+            >
               {{
                 typeof value === "string" || typeof value === "number"
-                ? value
-                : value.text
+                  ? value
+                  : value.text
               }}
-              <span class="text-sm font-weight-bolder" :class="percentage.color">
+              <span
+                class="text-sm font-weight-bolder"
+                :class="percentage.color"
+              >
                 {{
-                  typeof percentage === "number" || typeof percentage === "string"
-                  ? `${percentage}`
-                  : ""
+                  typeof percentage === "number" ||
+                  typeof percentage === "string"
+                    ? `${percentage}`
+                    : ""
                 }}
                 {{
                   percentage && percentage === "object"
-                  ? `${percentage.value}`
-                  : ""
+                    ? `${percentage.value}`
+                    : ""
                 }}
               </span>
             </h5>
           </div>
         </div>
       </div>
-    </div>    
+    </div>
   </div>
 </template>
 

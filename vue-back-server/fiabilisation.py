@@ -119,8 +119,11 @@ def validate_excel(file_path, output_path):
             invalid_rows.append(errors)
 
     if invalid_rows:
-        invalid_df = pd.DataFrame(invalid_rows)
-        invalid_df.to_excel(output_path, index=False)
-        return invalid_df
+            invalid_df = pd.DataFrame(invalid_rows)
+            invalid_df['Nombre d\'Erreurs'] = invalid_df.apply(
+                lambda row: sum(1 for value in row[6:] if isinstance(value, str) and value.strip() != ""), axis=1
+            )
+            invalid_df.to_excel(output_path, index=False)
+            return invalid_df
     else:
         return pd.DataFrame()  # Retourner un DataFrame vide
