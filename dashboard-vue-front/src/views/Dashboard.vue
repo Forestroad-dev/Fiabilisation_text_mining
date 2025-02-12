@@ -1,5 +1,6 @@
 <template>
   <div class="py-4 container-fluid">
+
     <div class="row">
       <div
         class="d-flex flex-column align-items-center justify-content-center"
@@ -30,6 +31,32 @@
           >
         </div>
 
+        <!-- Champ de sélection des pays -->
+        <div class="mb-3" style="width: 100%">
+          <label for="country-select" class="form-label">Sélectionnez un pays :</label>
+          <select
+            id="country-select"
+            v-model="selectedCountry"
+            class="form-control"
+            style="font-family: 'Arial', sans-serif; font-size: 14px"
+          >
+            <option value="" disabled>-- Sélectionnez un pays --</option>
+            <option value="🇧🇫 COFINA Burkina">🇧🇫 COFINA Burkina</option>
+            <option value="🇨🇮 CASH DEAL Côte d'Ivoire">🇨🇮 CASH DEAL Côte d'Ivoire</option>
+            <option value="🇨🇮 COFINA Côte d'Ivoire">🇨🇮 COFINA Côte d'Ivoire</option>
+            <option value="🇨🇮 Fin'ELLE">🇨🇮 Fin'ELLE</option>
+            <option value="🇨🇲 COFINA Cameroun">🇨🇲 COFINA Cameroun</option>
+            <option value="🇨🇬 COFINA Congo">🇨🇬 COFINA Congo</option>
+            <option value="🇬🇦 COFINA Gabon">🇬🇦 COFINA Gabon</option>
+            <option value="🇬🇳 COFINA Guinée">🇬🇳 COFINA Guinée</option>
+            <option value="🇲🇱 COFINA Mali">🇲🇱 COFINA Mali</option>
+            <option value="🇲🇱 CASH DEAL Mali">🇲🇱 CASH DEAL Mali</option>
+            <option value="🇸🇳 COFINA Sénégal">🇸🇳 COFINA Sénégal</option>
+            <option value="🇸🇳 CASH DEAL Sénégal">🇸🇳 CASH DEAL Sénégal</option>
+            <option value="🇹🇬 COFINA Togo">🇹🇬 COFINA Togo</option>
+          </select>
+        </div>
+
         <button
           class="btn"
           id="upload-button"
@@ -38,6 +65,7 @@
             color: white;
             border: none;
           "
+          @click="uploadFile"
         >
           Valider
         </button>
@@ -65,6 +93,8 @@
         </div>
       </div>
     </div>
+
+
 
     <div class="row d-flex justify-content-between">
       <!-- Affichage des statistiques -->
@@ -103,6 +133,22 @@
           :percentage-style="{ color: 'white' }"
           direction-reverse
           class="custom-value-card"
+        />
+      </div>
+      <div class="col-xl-2.5 col-sm-6 mb-xl-0 mb-4">
+        <mini-statistics-card
+          title="Filiale"
+          :value="selectedCountry"
+          :percentage="{
+            value: 'N/A',
+            color: 'text-muted',
+          }"
+          style="
+            background-color: white; color: #ec2d2d"
+          :title-style="{ color: 'gray', fontWeight: 'bold' }"
+          :value-style="{ color: 'white' }"
+          :percentage-style="{ color: 'white' }"
+          direction-reverse
         />
       </div>
       <div>
@@ -218,7 +264,7 @@
       <div class="col-12">
         <div class="card">
           <div class="card-body">
-            <h5 class="card-title">Détails des Erreurs commises par les CC</h5>
+            <h5 class="card-title">Détails des erreurs commises par les CC</h5>
             <!-- Filtre CC -->
             <div class="mb-3">
               <label for="filterCC" class="form-label">Filtrer par CC :</label>
@@ -260,11 +306,7 @@
                   style="
                     position: sticky;
                     top: 0;
-                    background: linear-gradient(
-                      310deg,
-                      #ad1717 0%,
-                      #ec2d2d 100%
-                    );
+                    background: linear-gradient(310deg, #ad1717 0%, #ec2d2d 100%);
                     color: white;
                     z-index: 2;
                   "
@@ -277,8 +319,8 @@
                     <th>Sexe/Genre</th>
                     <th>Représentant</th>
                     <th>Agence</th>
-                    <th>Total Erreurs Agence</th>
-                    <th>Taux d'Erreurs du CC dans l'Agence</th>
+                    <th>Total erreurs egence</th>
+                    <th>Taux d'erreurs du CC</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -310,11 +352,7 @@
                   <!-- Ligne Total -->
                   <tr
                     style="
-                      background: linear-gradient(
-                        310deg,
-                        #ad1717 0%,
-                        #ec2d2d 100%
-                      );
+                      background: linear-gradient(310deg, #ad1717 0%, #ec2d2d 100%);
                       color: white;
                       font-weight: bold;
                     "
@@ -352,7 +390,7 @@
         <div class="card">
           <div class="card-body">
             <h5 class="card-title">
-              Détails des Erreurs commises par les agences
+              Détails des erreurs commises par les agences
             </h5>
 
             <!-- Filtrer par Agence -->
@@ -362,6 +400,7 @@
               >
               <select
                 id="filterAgence"
+                
                 v-model="selectedAgence"
                 class="form-select"
                 style="font-family: 'Arial', sans-serif; font-size: 14px"
@@ -400,11 +439,7 @@
                   style="
                     position: sticky;
                     top: 0;
-                    background: linear-gradient(
-                      310deg,
-                      #ad1717 0%,
-                      #ec2d2d 100%
-                    );
+                    background: linear-gradient(310deg, #ad1717 0%, #ec2d2d 100%);
                     color: white;
                     z-index: 2;
                   "
@@ -453,11 +488,7 @@
                   </tr>
                   <tr
                     style="
-                      background: linear-gradient(
-                        310deg,
-                        #ad1717 0%,
-                        #ec2d2d 100%
-                      );
+                      background: linear-gradient(310deg, #ad1717 0%, #ec2d2d 100%);
                       color: white;
                       font-weight: bold;
                     "
@@ -621,6 +652,9 @@ export default {
       isValidationComplete: false,
       selectedCC: "",
       selectedAgence: "",
+      selectedCountry: '',
+      countryEmoji: "",
+      countryName: "", 
     };
   },
 
@@ -808,12 +842,13 @@ export default {
       const fileInput = document.getElementById("file-upload");
       const validationIcon = document.getElementById("validation-icon");
 
-      // Ajout d'une classe de bordure verte et fond de couleur pour indiquer la sélection du fichier
-      fileInput.style.border = "2px solid green";
-      fileInput.style.backgroundColor = "#d4edda";
+      // Vérification si un pays a été sélectionné
+      if (!this.selectedCountry) {
+        alert("Veuillez sélectionner un pays avant de valider.");
+        return;
+      }
 
       const file = fileInput.files[0];
-
       if (!file) {
         alert("Veuillez sélectionner un fichier.");
         return;
@@ -821,15 +856,30 @@ export default {
 
       this.fileName = file.name;
 
+      // Extraction de l'emoji et du nom du pays
+      const countryParts = this.selectedCountry.split(" "); // Diviser la sélection par espaces
+      this.countryEmoji = countryParts[0]; // L'emoji est toujours la première partie
+      this.countryName = countryParts.slice(1).join(" "); // Recréer le nom du pays sans l'emoji
+
+      console.log("Pays sélectionné :", this.countryName);
+      console.log("Emoji du pays :", this.countryEmoji);
+
       // Affichage du spinner et désactivation du bouton d'upload
       document.getElementById("spinner").classList.remove("d-none");
       document.getElementById("file-upload").disabled = true;
 
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("country", this.selectedCountry); // Envoyer le pays sélectionné
+      formData.append("countryName", this.countryName); // Envoyer uniquement le nom du pays
+      formData.append("countryEmoji", this.countryEmoji); // Envoyer uniquement l'emoji
+
+      console.log("Pays sélectionné (selectedCountry) :", this.selectedCountry);
+
+      console.log("Emoji du pays (countryEmoji) :", this.countryEmoji);
+      console.log("Nom du pays (countryName) :", this.countryName);
 
       try {
-        // Envoi du fichier vers l'API
         const response = await fetch("http://localhost:8000/validate-excel/", {
           method: "POST",
           body: formData,
@@ -837,29 +887,25 @@ export default {
 
         const result = await response.json();
 
-        // Masquer le spinner et réactiver l'input
+        // Masquer le spinner et réactiver le bouton
         document.getElementById("spinner").classList.add("d-none");
         document.getElementById("file-upload").disabled = false;
 
         if (response.ok) {
           // Affichage de l'icône de validation en cas de succès
-          validationIcon.classList.remove("d-none"); // Affiche l'icône de validation
-          validationIcon.style.color = "green"; // Change la couleur de l'icône en vert
+          validationIcon.classList.remove("d-none");
+          validationIcon.style.color = "green";
           this.updateStats(result.result); // Mise à jour des stats ou résultats
           this.downloadLink = result.result.download_link;
           this.isValidationComplete = true;
         } else {
-          // Masquer l'icône et indiquer l'échec si nécessaire
           validationIcon.classList.add("d-none");
           console.error(`Erreur : ${result.message}`);
         }
       } catch (error) {
-        // Si une erreur se produit lors de la requête, afficher un message d'erreur
         console.error("Erreur:", error);
-        validationIcon.classList.add("d-none"); // Masquer l'icône si une erreur se produit
+        validationIcon.classList.add("d-none");
         alert("Une erreur est survenue lors de l'envoi du fichier.");
-
-        // Masquer le spinner et réactiver le bouton
         document.getElementById("spinner").classList.add("d-none");
         document.getElementById("file-upload").disabled = false;
       }

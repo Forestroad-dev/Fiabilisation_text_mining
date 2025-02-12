@@ -136,13 +136,13 @@ async def validate_excel_file(file: UploadFile = File(...)):
         )
 
         # Ajouter les CC manquants (sans erreurs) pour garantir que tous les CC sont inclus
-        all_cc = pd.DataFrame({"CC": df["CC"].unique()})  # Get all unique CCs from the original data
+        all_cc = df[["CC", "Agence"]].drop_duplicates()  # Récupère tous les CC uniques et leurs agences
         cc_error_counts = pd.merge(
-            all_cc, 
+            all_cc,  # Inclure les informations d'agence
             cc_error_counts, 
-            on="CC", 
+            on=["CC", "Agence"],  # Fusion sur CC et Agence
             how="left"
-        ).fillna(0)  # Fill missing values with 0
+        ).fillna(0)  # Remplir les valeurs manquantes avec 0
 
 
         # Trier les résultats par pourcentage
@@ -153,8 +153,13 @@ async def validate_excel_file(file: UploadFile = File(...)):
         agence_error_counts = invalid_data.groupby("Agence")[specific_error_columns].apply(lambda group: (group != "").sum()).reset_index()
         agence_error_counts["Total Erreurs"] = agence_error_counts[specific_error_columns].sum(axis=1)
 
+        # Supprimer les doublons basés sur CC et Agence
+        unique_cc_per_agence = df[["CC", "Agence"]].drop_duplicates()
+
         # Calcul du nombre de CC par agence
-        cc_per_agence = df.groupby("Agence")["CC"].nunique().reset_index()
+        cc_per_agence = unique_cc_per_agence.groupby("Agence")["CC"].nunique().reset_index()
+
+        # Renommer la colonne pour plus de clarté
         cc_per_agence = cc_per_agence.rename(columns={"CC": "Nombre de CC"})
 
         # Ajouter les agences manquantes (même celles sans erreur) avec un total de 0
