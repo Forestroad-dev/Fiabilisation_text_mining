@@ -143,11 +143,15 @@ async def validate_excel_file(file: UploadFile = File(...)):
             on=["CC", "Agence"],  # Fusion sur CC et Agence
             how="left"
         ).fillna(0)  # Remplir les valeurs manquantes avec 0
+        
+        # Compter le nombre de comptes ouverts (nombre de lignes par CC et Agence)
+        cc_open_accounts = df.groupby(["CC", "Agence"]).size().reset_index(name="Comptes Ouverts")
 
+        # Fusionner avec les erreurs comptabilisées
+        cc_error_counts = pd.merge(cc_error_counts, cc_open_accounts, on=["CC", "Agence"], how="left")
 
-        # Trier les résultats par pourcentage
+        # Trier par Pourcentage d'erreurs
         cc_error_counts = cc_error_counts.sort_values(by="Pourcentage", ascending=False).reset_index(drop=True)
-
 
         # Résumé des erreurs par Agence
         agence_error_counts = invalid_data.groupby("Agence")[specific_error_columns].apply(lambda group: (group != "").sum()).reset_index()
